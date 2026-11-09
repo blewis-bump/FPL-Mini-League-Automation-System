@@ -58,7 +58,23 @@ def fetch_league_standings(league_id):
 
     df = df[columns_to_keep]
 
+    # rename columns to friendlier names
+    df = df.rename(
+        columns={
+            "player_name": "Manager",
+            "entry_name": "Team",
+            "event_total": "weekly_total",
+            "total": "Total",
+            "entry": "player_id",
+        }
+    )
+
     return league_name, df
+
+
+def sort_by_weekly(df):
+    """Returns a copy of the standings sorted by this gameweek's points, highest first."""
+    return df.sort_values(by="weekly_total", ascending=False).reset_index(drop=True)
 
 
 def fetch_manager_gameweek_picks(entry_id, gameweek):
@@ -81,19 +97,34 @@ def fetch_manager_gameweek_picks(entry_id, gameweek):
 
 if __name__ == "__main__":
     # Let the user pass a league ID when running the script;
-    # fall back to 912144 if none is given
+    # if none is given, ask for it from the keyboard
+    DEFAULT_LEAGUE_ID = 912144
     parser = argparse.ArgumentParser(description="Show FPL classic league standings.")
-    parser.add_argument("league_id", nargs="?", type=int, default=912144,
+    parser.add_argument("league_id", nargs="?", type=int, default=None,
                         help="League ID (the number in the league's URL)")
     LEAGUE_ID = parser.parse_args().league_id
+
+    while LEAGUE_ID is None:
+        typed = input(f"Enter your league ID (press Enter for {DEFAULT_LEAGUE_ID}): ").strip()
+        if typed == "":
+            LEAGUE_ID = DEFAULT_LEAGUE_ID
+        elif typed.isdigit():
+            LEAGUE_ID = int(typed)
+        else:
+            print("Please enter numbers only.")
 
     league_name, standings_df = fetch_league_standings(LEAGUE_ID)
 
     print(f"=== {league_name.upper()} STANDINGS ===")
     print(standings_df.to_string(index=False))
 
-    top_manager_entry_id = standings_df.iloc[0]["entry"]
-    top_manager_name = standings_df.iloc[0]["player_name"]
+    # same data, sorted by this gameweek's points
+    weekly_df = sort_by_weekly(standings_df)
+    print(f"\n=== {league_name.upper()} - THIS GAMEWEEK ===")
+    print(weekly_df.to_string(index=False))
+
+    top_manager_entry_id = standings_df.iloc[0]["player_id"]
+    top_manager_name = standings_df.iloc[0]["Manager"]
 
     print(
         f"\nFetching GW1 picks for 1st place manager: {top_manager_name} (ID: {top_manager_entry_id})..."
